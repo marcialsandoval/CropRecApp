@@ -1,0 +1,250 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout
+        xmlns:android="http://schemas.android.com/apk/res/android"
+        android:background="@android:color/white"
+        android:layout_width="match_parent"
+        android:orientation="vertical"
+        android:layout_height="match_parent">
+
+    <RelativeLayout
+            android:layout_width="match_parent"
+            android:layout_height="match_parent">
+
+        <ImageView
+                android:src="@drawable/crop_background"
+                android:scaleType="centerCrop"
+                android:alpha="0.3"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent" />
+
+        <RelativeLayout
+                android:padding="16dp"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent">
+
+            <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:orientation="vertical">
+
+                <LinearLayout
+                        android:alpha="1"
+                        android:id="@+id/location_layout"
+                        android:layout_marginBottom="8dp"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal">
+
+                    <LinearLayout
+                            android:layout_weight="1"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:orientation="horizontal">
+
+                        <TextView
+                                android:layout_marginLeft="4dp"
+                                android:layout_marginRight="4dp"
+                                android:textSize="16sp"
+                                android:textStyle="bold"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="Location:">
+
+                        </TextView>
+
+                        <TextView
+                                android:gravity="center"
+                                android:alpha="0.66"
+                                android:textSize="16sp"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="[">
+
+                        </TextView>
+
+                        <TextView
+                                android:id="@+id/latitude_textview"
+                                android:layout_weight="1"
+                                android:gravity="center"
+                                android:alpha="0.66"
+                                android:textSize="16sp"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="0.00:">
+
+                        </TextView>
+
+                        <TextView
+                                android:gravity="center"
+                                android:alpha="0.66"
+                                android:textSize="16sp"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text=",">
+
+                        </TextView>
+
+                        <TextView
+                                android:id="@+id/longitude_textview"
+                                android:layout_weight="1"
+                                android:gravity="center"
+                                android:alpha="0.66"
+                                android:textSize="16sp"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="0.00:">
+                        </TextView>
+
+
+                        <TextView
+                                android:gravity="center"
+                                android:alpha="0.66"
+                                android:textSize="16sp"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="]">
+
+                        </TextView>
+
+
+                    </LinearLayout>
+
+
+                    <LinearLayout
+                            android:layout_marginLeft="16dp"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:orientation="horizontal">
+
+                        <TextView
+                                android:id="@+id/orientation_textview"
+                                android:gravity="center_horizontal"
+                                android:textSize="16sp"
+                                android:textStyle="bold"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:text="N">
+
+                        </TextView>
+
+                    </LinearLayout>
+
+                </LinearLayout>
+
+                <RelativeLayout
+                        android:layout_marginBottom="8dp"
+                        android:layout_weight="1"
+                        android:layout_width="match_parent"
+                        android:layout_height="0dp">
+
+
+                    <TextView
+                            android:visibility="visible"
+                            android:id="@+id/no_image_txt"
+                            android:textSize="16sp"
+                            android:textStyle="bold"
+                            android:textColor="@android:color/black"
+                            android:text="NO IMAGE"
+                            android:layout_centerInParent="true"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content">
+                    </TextView>
+
+                    <ImageView
+                            android:id="@+id/ivFoto"
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent"
+                            android:alpha="1"
+                            android:scaleType="centerCrop" />
+
+                    <RelativeLayout
+                            android:elevation="35dp"
+                            android:alpha="0"
+                            android:id="@+id/output_layout"
+                            android:layout_width="80dp"
+                            android:layout_height="80dp"
+                            android:layout_marginStart="16dp"
+                            android:layout_alignParentEnd="true"
+                            android:layout_marginEnd="16dp"
+                            android:layout_marginLeft="16dp"
+                            android:layout_marginRight="16dp"
+                            android:layout_marginTop="16dp"
+                            android:layout_alignParentBottom="true"
+                            android:layout_marginBottom="16dp"
+                            android:background="@drawable/wheat_output_background">
+
+
+                        <ImageView
+                                android:id="@+id/output_icon"
+                                android:padding="8dp"
+                                android:src="@drawable/wheat_ic"
+                                android:scaleType="centerCrop"
+                                android:alpha="1"
+                                android:layout_width="match_parent"
+                                android:layout_height="match_parent" />
+
+
+                        <LinearLayout
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_centerInParent="true"
+                                android:gravity="center"
+                                android:orientation="vertical">
+
+                            <TextView
+                                    android:alpha="0.66"
+                                    android:id="@+id/conf_tv"
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:gravity="center"
+                                    android:text="0%"
+                                    android:textSize="12sp" />
+
+                        </LinearLayout>
+
+                    </RelativeLayout>
+
+                    <ProgressBar
+                            android:id="@+id/progress_horizontal"
+                            android:alpha="0"
+                            android:layout_alignParentBottom="true"
+                            style="@style/Widget.AppCompat.ProgressBar.Horizontal"
+                            android:layout_width="match_parent"
+                            android:layout_height="16dp"
+                            android:indeterminate="true">
+
+                    </ProgressBar>
+
+
+                </RelativeLayout>
+
+
+                <Button
+
+                        android:textSize="16sp"
+                        android:alpha="1"
+                        android:id="@+id/take_pic"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginBottom="8dp"
+                        android:text="Take a Photo"
+                        android:background="@drawable/redondo"/>
+
+                <Button
+                        android:textSize="16sp"
+                        android:alpha="1"
+                        android:id="@+id/btnSeleccionarImagen"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="Select an image"
+                        android:background="@drawable/redondo"/>
+
+
+            </LinearLayout>
+
+        </RelativeLayout>
+
+
+
+    </RelativeLayout>
+</LinearLayout>

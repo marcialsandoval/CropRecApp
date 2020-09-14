@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="colorPrimary">#9ccc65</color>
+    <color name="colorPrimaryDark">#6b9b37</color>
+    <color name="colorPrimaryLight">#cfff95</color>
+
+    <color name="wheatColor">#ffee58</color>
+    <color name="colorAccent">#cfff95</color>
+    <color name="colorBlack">#000000</color>
+    <color name="colorwhite">#FFFF</color>
+    <color name="colorPrimaryGreen">#00bfff</color>
+</resources>
