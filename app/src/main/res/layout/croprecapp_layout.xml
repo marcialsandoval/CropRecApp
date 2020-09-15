@@ -123,7 +123,7 @@
                                 android:textStyle="bold"
                                 android:layout_width="match_parent"
                                 android:layout_height="wrap_content"
-                                android:text="N">
+                                android:text="~">
 
                         </TextView>
 
@@ -151,14 +151,14 @@
                     </TextView>
 
                     <ImageView
-                            android:id="@+id/ivFoto"
+                            android:id="@+id/sample_iv"
                             android:layout_width="match_parent"
                             android:layout_height="match_parent"
                             android:alpha="1"
                             android:scaleType="centerCrop" />
 
                     <RelativeLayout
-                            android:elevation="35dp"
+                            android:elevation="16dp"
                             android:alpha="0"
                             android:id="@+id/output_layout"
                             android:layout_width="80dp"
@@ -233,7 +233,7 @@
                 <Button
                         android:textSize="16sp"
                         android:alpha="1"
-                        android:id="@+id/btnSeleccionarImagen"
+                        android:id="@+id/select_img_btn"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:text="Select an image"
@@ -243,8 +243,6 @@
             </LinearLayout>
 
         </RelativeLayout>
-
-
 
     </RelativeLayout>
 </LinearLayout>
