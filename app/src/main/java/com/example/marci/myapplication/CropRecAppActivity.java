@@ -739,7 +739,7 @@ public class CropRecAppActivity extends AppCompatActivity  implements SensorEven
         return directory;
 
     }
-
+    
     private File createImageFile() throws IOException {
 
         // Create an image file name
