@@ -1,10 +1,11 @@
 # CropRecApp
+
+![crop_ic_launcher](https://user-images.githubusercontent.com/61889565/93372816-4c7ee480-f809-11ea-97f0-02983d4e496f.png)
+
 ## Summary
 CropRecApp is an android app thats uses a pre trained convolutional neural network to make image recognition of two different classes: Wheat and Maize. 
 
 It also makes a recognition of the phones orientation using a pre trained artificial neural network with 8 different outcomes: North (N), Northeast (NE), Northwest (NW), East (E), South (S), Southeast (SE), Southwest (SW) and West (W).  
-
-![crop_ic_launcher](https://user-images.githubusercontent.com/61889565/93372816-4c7ee480-f809-11ea-97f0-02983d4e496f.png)
 
 ## Pre requisites
 An Android device or an emulator running API level 21 or higher. A minimum of 200 MB of internal storage space free is recommended.
