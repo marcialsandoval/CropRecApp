@@ -28,16 +28,20 @@ import android.view.View;
 import android.widget.*;
 import org.datavec.image.loader.NativeImageLoader;
 import org.deeplearning4j.nn.conf.preprocessor.FeedForwardToCnnPreProcessor;
+import org.deeplearning4j.nn.graph.ComputationGraph;
 import org.deeplearning4j.nn.multilayer.MultiLayerNetwork;
 import org.deeplearning4j.util.ModelSerializer;
 import org.nd4j.linalg.api.ndarray.INDArray;
 import org.nd4j.linalg.dataset.api.preprocessor.DataNormalization;
+import org.nd4j.linalg.dataset.api.preprocessor.VGG16ImagePreProcessor;
 import org.nd4j.linalg.factory.Nd4j;
+import org.opencv.core.Mat;
 
 import java.io.*;
 import java.net.MalformedURLException;
 import java.text.DecimalFormat;
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.Date;
 import static android.Manifest.permission.*;
 
@@ -82,7 +86,20 @@ public class CropRecAppActivity extends AppCompatActivity  implements SensorEven
     private final int SELEC_IMAGEN = 300;
     private final int WRITE_PERMISSION_RQST = 400;
     private final int CAMERA_PERMISSION_RQST = 500;
-    String[] classLabels = {"maize", "wheat"};
+    String[] classLabels = {"maize","other","wheat"};
+
+    private final double[] maizeCentroid = {0.965910816,	0.520882138,	0.013386066,	0.977219936};
+    private final double[] otherCentroid = {0.489447644,	0.826917604,	0.625937269,	0.818640766};
+    private final double[] wheatCentroid =  {0.815427272,	0.531788577,	0.939501779,	0.949467153};
+    final int[] resnetMixMaxValues = {0,998};
+
+    private final double[][] centroids = {maizeCentroid, otherCentroid ,wheatCentroid};
+    private ComputationGraph resnet50Model;
+    private final int RESNET50_CODE = 100;
+    private final int MW_CODE = 200;
+    private long TLMODEL_IMAGE_HEIGHT = 224;
+    private long TLMODEL_IMAGE_WIDTH = 224;
+
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -127,7 +144,9 @@ public class CropRecAppActivity extends AppCompatActivity  implements SensorEven
         takePictureBtn.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-
+                outLayout.animate()
+                        .alpha(0f)
+                        .setDuration(350);
                 //Checks for granted Camera Permission
                 if (ContextCompat.checkSelfPermission(getApplicationContext(), Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
 
@@ -146,6 +165,11 @@ public class CropRecAppActivity extends AppCompatActivity  implements SensorEven
         selectPictureBtn.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
+                outLayout.animate()
+                        .alpha(0f)
+                        .setDuration(350);
+
+
                 selectImage();
             }
         });
@@ -185,39 +209,70 @@ public class CropRecAppActivity extends AppCompatActivity  implements SensorEven
     /**
      * This method classifies the input image.
      *
-     * @param  photoFile File with the test image to be classified.
+     * @param  newImagePath Filepath with the test image to be classified.
      * @return String[] class label on index 0, and confidence value on index 1.
      */
-    private String[] testImage(File photoFile) {
+    private String[] testImage(String newImagePath, int modelCode) {
 
-        String[] result = {"pred", "conf"};
+        String[] result = new String[2];
         String prediction = "", probability = "";
 
-        NativeImageLoader loader = new NativeImageLoader(IMAGE_HEIGHT, IMAGE_WIDTH, IMAGE_CHANNELS);
+        int predictionClass;
+        double probabilityValue;
 
-        try {
+        switch (modelCode) {
 
-            INDArray image = loader.asMatrix(photoFile);
-            trainImageScaler.transform(image);
+            case RESNET50_CODE:
+                try {
+                    NativeImageLoader loader = new NativeImageLoader(TLMODEL_IMAGE_HEIGHT, TLMODEL_IMAGE_WIDTH, IMAGE_CHANNELS);
+                    INDArray image = loader.asMatrix(new File(newImagePath));
 
-            int[] outputPrediction = net.predict(image);
-            prediction = classLabels[outputPrediction[0]];
+                    VGG16ImagePreProcessor imagePreProcessor = new VGG16ImagePreProcessor();
+                    imagePreProcessor.transform(image);
 
-            INDArray output = net.output(image);
-            probability = String.valueOf(output.getDouble(outputPrediction[0]) * 100);
+                    INDArray[] samples = {image};
+                    INDArray[] outputPrediction = resnet50Model.output(false, samples);
 
-        } catch (IOException e) {
+                    predictionClass = (int) outputPrediction[0].argMax(1).getDouble(0);
+                    probabilityValue = outputPrediction[0].getDouble(predictionClass);
 
-            Log.e(LOG_TAG, "net PREDICT IO EXCEPTION: " + e.toString());
+                    prediction = String.valueOf(predictionClass);
+                    probability = String.valueOf(probabilityValue);
 
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+
+                break;
+
+            default:
+
+                NativeImageLoader loader = new NativeImageLoader(IMAGE_HEIGHT, IMAGE_WIDTH, IMAGE_CHANNELS);
+
+                try {
+
+                    INDArray image = loader.asMatrix(new File(newImagePath));
+                    trainImageScaler.transform(image);
+
+                    int[] outputPrediction = net.predict(image);
+                    prediction = String.valueOf(outputPrediction[0]);
+
+                    INDArray output = net.output(image);
+                    probability = String.valueOf(output.getDouble(outputPrediction[0]));
+
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+
+                break;
         }
+
 
         result[0] = prediction;
         result[1] = probability;
 
         return result;
     }
-
     /**
      * This method launches phone location services and camera api.
      *
@@ -225,7 +280,7 @@ public class CropRecAppActivity extends AppCompatActivity  implements SensorEven
     public void takePicture() {
 
 
-        initLocationListener();
+       // initLocationListener();
         dispatchTakePictureIntent();
 
     }
@@ -438,7 +493,7 @@ public class CropRecAppActivity extends AppCompatActivity  implements SensorEven
         outLayout.animate().scaleX(1f).scaleY(1f).setDuration(50);
     }
 
-    private class ModelReaderAsyntask extends AsyncTask<String, Integer, String[]> {
+    private class ModelReaderAsyntask extends AsyncTask<String, Integer, String> {
 
         // Runs in UI before background thread is called
         @Override
@@ -450,18 +505,30 @@ public class CropRecAppActivity extends AppCompatActivity  implements SensorEven
         }
 
         @Override
-        protected String[] doInBackground(String... uri) {
+        protected String doInBackground(String... uri) {
 
-            String[] testResult = new String[2];
+            String testResult = "";
             // Main background thread, this will load the model and test the input image
             //load the model from the raw folder with a try / catch block
             try {
 
                 // Load the pretrained network.
                 InputStream inputStream = getResources().openRawResource(R.raw.relu_mse_e14_10222019235106_model);
-                net = ModelSerializer.restoreMultiLayerNetwork(inputStream);
+                InputStream resnet50InputStream = getResources().openRawResource(R.raw.resnet50);
+
+                importModels(inputStream, resnet50InputStream);
+
                 initSampleInputParams();
-                testResult = testImage(photoFile);
+
+                String newImagePath = photoFile.getPath();
+                String[] output1 = testImage(newImagePath, RESNET50_CODE);
+                String[] output2 = testImage(newImagePath, MW_CODE);
+
+                double normalizedLabelOutput = normalizeResnetOutput1(output1[0]);
+                double[] sampleDoubles = {normalizedLabelOutput,	Double.parseDouble(output1[1]),	Double.parseDouble(output2[0]),	Double.parseDouble(output2[1])};
+
+                testResult = classifySample(sampleDoubles);
+                Log.w(LOG_TAG, "testResult : " + testResult);
 
             } catch (MalformedURLException e) {
                 Log.e(LOG_TAG, "imageStream MalformedURLException : " + e.toString());
@@ -472,6 +539,94 @@ public class CropRecAppActivity extends AppCompatActivity  implements SensorEven
             return testResult;
         }
 
+        private String classifySample(double[] sampleDoubles) {
+
+            String predictedLabel = "";
+
+            int[] featureIndex = {0,1,3};
+
+            double[] selectedSampleFeatures = new double[featureIndex.length];
+            double[][] classCentroidsSelectedFeatures = new double[centroids.length][featureIndex.length];
+
+            for(int i = 0 ; i < featureIndex.length  ; i++){
+
+                selectedSampleFeatures[i]  = sampleDoubles[featureIndex[i]];
+
+                classCentroidsSelectedFeatures[0][i] = centroids[0][featureIndex[i]];;
+                classCentroidsSelectedFeatures[1][i] = centroids[1][featureIndex[i]];;
+                classCentroidsSelectedFeatures[2][i] = centroids[2][featureIndex[i]];;
+
+            }
+
+            double[] distances = new double[centroids.length];
+
+            for (int i = 0 ; i < centroids.length ; i++){
+
+                distances[i] = getEuclideanDistance(selectedSampleFeatures,   classCentroidsSelectedFeatures[i]);
+            }
+
+            int minDistanceIndex = getMinDistance(distances);
+
+            predictedLabel = classLabels[minDistanceIndex];
+
+            return predictedLabel;
+        }
+
+        private int getMinDistance(double[] distances) {
+
+            double minValue = 1000;
+            int minIndex = -1;
+
+            for(int i = 0 ; i < distances.length ; i++){
+
+                if(distances[i] < minValue){
+                    minValue = distances[i];
+                    minIndex = i ;
+                }
+
+            }
+            return minIndex;
+        }
+
+        private double getEuclideanDistance(double[] selectedSampleFeatures, double[] classCentroidsSelectedFeature) {
+
+            double sum = 0;
+
+            for(int i = 0 ; i < selectedSampleFeatures.length ; i++){
+
+                sum +=  Math.pow(selectedSampleFeatures[i] - classCentroidsSelectedFeature[i],2);
+
+            }
+
+            double result = Math.sqrt(sum);
+
+            return result;
+        }
+
+        private double normalizeResnetOutput1(String outputValue) {
+            double result = -1;
+
+            double value = Double.parseDouble(outputValue);
+            result = (value - resnetMixMaxValues[0]) / ( resnetMixMaxValues[1] - resnetMixMaxValues[0]);
+
+            return result;
+        }
+
+        private void importModels(InputStream inputStream, InputStream resnet50InputStream) throws IOException {
+            net = ModelSerializer.restoreMultiLayerNetwork(inputStream);
+
+            byte[] buffer = new byte[resnet50InputStream.available()];
+            resnet50InputStream.read(buffer);
+
+            File storageDir = getOutputDirectory("CropRecApp");
+
+            File targetFile = new File(storageDir.getPath() + "/targetFile.tmp");
+            OutputStream outStream = new FileOutputStream(targetFile);
+            outStream.write(buffer);
+
+            resnet50Model = ComputationGraph.load(targetFile, true);
+        }
+
         @Override
         protected void onProgressUpdate(Integer... values) {
             super.onProgressUpdate(values);
@@ -479,24 +634,32 @@ public class CropRecAppActivity extends AppCompatActivity  implements SensorEven
 
 
         @Override
-        protected void onPostExecute(String[] result) {
+        protected void onPostExecute(String result) {
             super.onPostExecute(result);
 
-            if(result[0].equals(classLabels[0])){
+
+            if(result.equals(classLabels[0])){
                 //MAIZE
                 outLayout.setBackground(getResources().getDrawable(R.drawable.maize_output_background,null));
                 outputIcon.setImageResource(R.drawable.corn_ic);
             }else{
-                //WHEAT
-                outLayout.setBackground(getResources().getDrawable(R.drawable.wheat_output_background,null));
-                outputIcon.setImageResource(R.drawable.wheat_ic);
+
+                if(result.equals(classLabels[1])){
+                    //OTHER
+                    outLayout.setBackground(getResources().getDrawable(R.drawable.other_output_background,null));
+                    outputIcon.setImageResource(R.drawable.cancel);
+
+                }else{
+                    //WHEAT
+                    outLayout.setBackground(getResources().getDrawable(R.drawable.wheat_output_background,null));
+                    outputIcon.setImageResource(R.drawable.wheat_ic);
+                }
             }
 
+
             //Displays output
-            DecimalFormat formatter = new DecimalFormat("####.##");
-            String labelText = String.format("Prediction: %s Probability: %s %%", result[0], formatter.format(Double.valueOf(result[1])));
-            Log.i(LOG_TAG, "\n\noutput : " + labelText);
-            confTv.setText(String.format("%s %%", formatter.format(Double.valueOf(result[1]))));
+            confTv.setText(result);
+
             outLayout.animate()
                     .alpha(1)
                     .scaleX(1.1f)
