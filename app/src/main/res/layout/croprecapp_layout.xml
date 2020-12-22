@@ -172,7 +172,7 @@
                                     android:padding="8dp"
                                     android:src="@drawable/wheat_ic"
                                     android:scaleType="centerCrop"
-                                    android:alpha="0.66"
+                                    android:alpha="1"
                                     android:layout_width="wrap_content"
                                     android:layout_height="wrap_content" />
 
@@ -185,13 +185,15 @@
                                     android:orientation="vertical">
 
                                     <TextView
-                                        android:alpha="0.66"
+                                        android:alpha="1"
+                                        android:textColor="@android:color/white"
                                         android:id="@+id/conf_tv"
                                         android:layout_width="wrap_content"
                                         android:layout_height="wrap_content"
                                         android:gravity="center"
+                                        android:textStyle="bold"
                                         android:text=""
-                                        android:textSize="12sp" />
+                                        android:textSize="24sp" />
 
                                 </LinearLayout>
 
