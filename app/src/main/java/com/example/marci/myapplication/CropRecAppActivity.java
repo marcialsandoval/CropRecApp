@@ -55,7 +55,7 @@ public class CropRecAppActivity extends AppCompatActivity  implements SensorEven
     private final float[] rotationMatrix = new float[9];
     private final float[] mOrientationAngles = new float[3];
     DataNormalization trainImageScaler;
-    private MultiLayerNetwork net;
+
     private static int IMAGE_WIDTH;
     private static int IMAGE_HEIGHT;
     private static int IMAGE_CHANNELS;
@@ -67,7 +67,7 @@ public class CropRecAppActivity extends AppCompatActivity  implements SensorEven
     // Create the File where the photo should go
     File photoFile = null;
 
-    RelativeLayout outLayout;
+    View outLayout;
     ProgressBar progressBar;
     LinearLayout locationLayout;
     private LocationManager manager;
@@ -94,12 +94,15 @@ public class CropRecAppActivity extends AppCompatActivity  implements SensorEven
     final int[] resnetMixMaxValues = {0,998};
 
     private final double[][] centroids = {maizeCentroid, otherCentroid ,wheatCentroid};
-    private ComputationGraph resnet50Model;
+
     private final int RESNET50_CODE = 100;
     private final int MW_CODE = 200;
     private long TLMODEL_IMAGE_HEIGHT = 224;
     private long TLMODEL_IMAGE_WIDTH = 224;
 
+    private MultiLayerNetwork orientationNet = null;
+    private ComputationGraph resnet50Model = null;
+    private MultiLayerNetwork net = null;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -120,7 +123,7 @@ public class CropRecAppActivity extends AppCompatActivity  implements SensorEven
         confTv = (TextView) findViewById(R.id.conf_tv);
 
         //outLayout shows the output class label
-        outLayout = (RelativeLayout) findViewById(R.id.output_layout);
+        outLayout = findViewById(R.id.output_layout);
 
         //outputIcon shows the output class icon
         outputIcon = (ImageView) findViewById(R.id.output_icon);
@@ -144,9 +147,22 @@ public class CropRecAppActivity extends AppCompatActivity  implements SensorEven
         takePictureBtn.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
+
                 outLayout.animate()
                         .alpha(0f)
                         .setDuration(350);
+
+                orientationTextView.setText(" ~ ");
+
+                if(locationLayout.getVisibility() == View.GONE){
+
+                    locationLayout.setVisibility(View.VISIBLE);
+                    locationLayout.animate()
+                            .alpha(1f)
+                            .setDuration(350);
+
+                }
+
                 //Checks for granted Camera Permission
                 if (ContextCompat.checkSelfPermission(getApplicationContext(), Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
 
@@ -169,6 +185,14 @@ public class CropRecAppActivity extends AppCompatActivity  implements SensorEven
                         .alpha(0f)
                         .setDuration(350);
 
+                if(locationLayout.getVisibility() == View.VISIBLE){
+
+                    locationLayout.animate()
+                            .alpha(0f)
+                            .setDuration(350);
+                    locationLayout.setVisibility(View.GONE);
+
+                }
 
                 selectImage();
             }
@@ -280,17 +304,20 @@ public class CropRecAppActivity extends AppCompatActivity  implements SensorEven
     public void takePicture() {
 
 
-       // initLocationListener();
+        initLocationListener();
         dispatchTakePictureIntent();
 
     }
+
     /**
      * This method launches phone location change listener and {@link OrientationModelReaderAsyntask}
      */
 
     private void initLocationListener() {
+
         locationLayout.animate().alpha(1f).setDuration(150);
         manager = (LocationManager) getSystemService(LOCATION_SERVICE);
+
         locationListener = new LocationListener() {
             @Override
             public void onLocationChanged(Location location) {
@@ -322,29 +349,27 @@ public class CropRecAppActivity extends AppCompatActivity  implements SensorEven
             }
         };
 
-        //launch OrientationModelReaderAsyntask once Sensor data is collected
-        OrientationModelReaderAsyntask runner = new OrientationModelReaderAsyntask();
-        runner.execute(orientationArray);
 
-        if (Build.VERSION.SDK_INT < 23) {// no permission check required
-            Log.i(LOG_TAG, "No checkSelfPermission");
-            Log.i(LOG_TAG, "requestLocationUpdates");
-            manager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 0, 0, locationListener);
+        Log.i(LOG_TAG, "checkSelfPermission");
 
-        } else {
-            Log.i(LOG_TAG, "checkSelfPermission");
-            //checks if permission granted
-            if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) { // permission not granted
-                //ask for permission
-                Log.i(LOG_TAG, "PERMISSION NOT GRANTED, ASK FOR IT");
-                ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.ACCESS_FINE_LOCATION}, LOCATION_RQST);
-            } else { //permission granted
-                //ask for location
-                Log.i(LOG_TAG, "PERMISSION GRANTED, ASK FOR LOCATION");
-                if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) { // permission  granted
-                    Log.i(LOG_TAG, "requestLocationUpdates");
-                    manager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 0, 0, locationListener);
-                }
+        //checks if permission granted
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) { // permission not granted
+            //ask for permission
+            Log.i(LOG_TAG, "PERMISSION NOT GRANTED, ASK FOR IT");
+            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.ACCESS_FINE_LOCATION}, LOCATION_RQST);
+        } else { //permission granted
+            //ask for location
+            Log.i(LOG_TAG, "PERMISSION GRANTED, ASK FOR LOCATION");
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) { // permission  granted
+                Log.i(LOG_TAG, "requestLocationUpdates");
+                manager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 0, 0, locationListener);
+
+
+                //launch OrientationModelReaderAsyntask once Sensor data is collected
+                OrientationModelReaderAsyntask runner = new OrientationModelReaderAsyntask();
+                runner.execute(orientationArray);
+
+
             }
         }
 
@@ -512,11 +537,15 @@ public class CropRecAppActivity extends AppCompatActivity  implements SensorEven
             //load the model from the raw folder with a try / catch block
             try {
 
-                // Load the pretrained network.
-                InputStream inputStream = getResources().openRawResource(R.raw.relu_mse_e14_10222019235106_model);
-                InputStream resnet50InputStream = getResources().openRawResource(R.raw.resnet50);
 
-                importModels(inputStream, resnet50InputStream);
+                if(resnet50Model == null || net == null){
+
+                    // Load the pretrained network.
+                    InputStream inputStream = getResources().openRawResource(R.raw.relu_mse_e14_10222019235106_model);
+                    InputStream resnet50InputStream = getResources().openRawResource(R.raw.resnet50);
+                    importModels(inputStream, resnet50InputStream);
+
+                }
 
                 initSampleInputParams();
 
@@ -902,7 +931,7 @@ public class CropRecAppActivity extends AppCompatActivity  implements SensorEven
         return directory;
 
     }
-    
+
     private File createImageFile() throws IOException {
 
         // Create an image file name
@@ -965,10 +994,16 @@ public class CropRecAppActivity extends AppCompatActivity  implements SensorEven
             double[][] sample = samples[0];
 
             try {
-                // Load the pretrained network.
-                InputStream inputStream = getResources().openRawResource(R.raw.orientation_model);
-                MultiLayerNetwork orientationNet = ModelSerializer.restoreMultiLayerNetwork(inputStream);
-                Log.i(LOG_TAG, "orientationNet restore Done");
+
+                if(orientationNet == null ){
+
+                    // Load the pretrained network.
+                    InputStream inputStream = getResources().openRawResource(R.raw.orientation_model);
+                    orientationNet = ModelSerializer.restoreMultiLayerNetwork(inputStream);
+                    Log.i(LOG_TAG, "orientationNet restore Done");
+
+                }
+
                 INDArray matrix = Nd4j.create(sample);
 
                 DataNormalization normalizer = getOrientationNormalizer();
@@ -1001,7 +1036,7 @@ public class CropRecAppActivity extends AppCompatActivity  implements SensorEven
             orientationTextView.setText(result);
 
             //Displays output
-           // oreintationTV.setText(result);
+            // oreintationTV.setText(result);
 
         }
 
@@ -1154,18 +1189,6 @@ public class CropRecAppActivity extends AppCompatActivity  implements SensorEven
         orientationArray[0][15] = (double) rotationMatrix[6];
         orientationArray[0][16] = (double) rotationMatrix[7];
         orientationArray[0][17] = (double) rotationMatrix[8];
-
-        Log.i(LOG_TAG, "SENSOR INFO UPDATED");
-
-
-
-//        orientationArray = {{ccelerometerReading[0], accelerometerReading[1] , accelerometerReading[2] ,
-//                magnetometerReading[0] , magnetometerReading[1] , magnetometerReading[2] ,
-//                mOrientationAngles[0] , mOrientationAngles[1] , mOrientationAngles[2] ,
-//                rotationMatrix[0] , rotationMatrix[1] , rotationMatrix[2] ,
-//                rotationMatrix[3] , rotationMatrix[4] , rotationMatrix[5] ,
-//                rotationMatrix[6] , rotationMatrix[7] , rotationMatrix[8]}};
-
 
     }
 

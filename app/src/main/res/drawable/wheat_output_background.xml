@@ -1,19 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
 <shape
-        xmlns:android="http://schemas.android.com/apk/res/android"
-        android:shape="ring"
-        android:useLevel="false"
-        android:thickness="40dp"
-        android:innerRadius="0dp">
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle"
+    android:useLevel="false"
+    android:thickness="40dp"
+    android:innerRadius="0dp">
 
     <solid
-            android:color="@color/wheatColor"/>
+        android:color="@color/wheatColor"/>
     <stroke
-            android:width="0dp"
-            android:color="@color/wheatColor"/>
-
-
-    <size
-            android:width = "@android:dimen/app_icon_size"
-            android:height = "@android:dimen/app_icon_size"/>
+        android:width="0dp"
+        android:color="@color/wheatColor"/>
 </shape>
+
