@@ -152,16 +152,16 @@ public class CropRecAppActivity extends AppCompatActivity  implements SensorEven
                         .alpha(0f)
                         .setDuration(350);
 
-                orientationTextView.setText(" ~ ");
-
-                if(locationLayout.getVisibility() == View.GONE){
-
-                    locationLayout.setVisibility(View.VISIBLE);
-                    locationLayout.animate()
-                            .alpha(1f)
-                            .setDuration(350);
-
-                }
+//                orientationTextView.setText(" ~ ");
+//
+//                if(locationLayout.getVisibility() == View.GONE){
+//
+//                    locationLayout.setVisibility(View.VISIBLE);
+//                    locationLayout.animate()
+//                            .alpha(1f)
+//                            .setDuration(350);
+//
+//                }
 
                 //Checks for granted Camera Permission
                 if (ContextCompat.checkSelfPermission(getApplicationContext(), Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
@@ -304,7 +304,7 @@ public class CropRecAppActivity extends AppCompatActivity  implements SensorEven
     public void takePicture() {
 
 
-        initLocationListener();
+      //  initLocationListener();
         dispatchTakePictureIntent();
 
     }
