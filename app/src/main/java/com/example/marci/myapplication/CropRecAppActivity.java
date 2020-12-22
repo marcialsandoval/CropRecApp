@@ -152,7 +152,7 @@ public class CropRecAppActivity extends AppCompatActivity  implements SensorEven
                         .alpha(0f)
                         .setDuration(350);
 
-                orientationTextView.setText("");
+                orientationTextView.setText(" ~ ");
 
                 if(locationLayout.getVisibility() == View.GONE){
 
