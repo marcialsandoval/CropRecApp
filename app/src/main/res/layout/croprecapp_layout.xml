@@ -35,32 +35,33 @@
                         android:layout_height="wrap_content"
                         android:orientation="horizontal">
 
+                    <TextView
+
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginRight="16dp"
+                        android:text="Location:"
+                        android:textSize="16sp"
+                        android:textStyle="bold">
+
+                    </TextView>
+
+                    <TextView
+                        android:gravity="center"
+                        android:alpha="0.66"
+                        android:textSize="16sp"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="[">
+
+                    </TextView>
+
                     <LinearLayout
                             android:layout_weight="1"
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
                             android:orientation="horizontal">
 
-                        <TextView
-                                android:layout_marginLeft="4dp"
-                                android:layout_marginRight="4dp"
-                                android:textSize="16sp"
-                                android:textStyle="bold"
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:text="Location:">
-
-                        </TextView>
-
-                        <TextView
-                                android:gravity="center"
-                                android:alpha="0.66"
-                                android:textSize="16sp"
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:text="[">
-
-                        </TextView>
 
                         <TextView
                                 android:id="@+id/latitude_textview"
@@ -70,7 +71,7 @@
                                 android:textSize="16sp"
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
-                                android:text="0.00:">
+                                android:text="0.00">
 
                         </TextView>
 
@@ -92,42 +93,37 @@
                                 android:textSize="16sp"
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
-                                android:text="0.00:">
+                                android:text="0.00">
                         </TextView>
 
-
-                        <TextView
-                                android:gravity="center"
-                                android:alpha="0.66"
-                                android:textSize="16sp"
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:text="]">
-
-                        </TextView>
 
 
                     </LinearLayout>
 
 
-                    <LinearLayout
-                            android:layout_marginLeft="16dp"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:orientation="horizontal">
 
-                        <TextView
-                                android:id="@+id/orientation_textview"
-                                android:gravity="center_horizontal"
-                                android:textSize="16sp"
-                                android:textStyle="bold"
-                                android:layout_width="match_parent"
-                                android:layout_height="wrap_content"
-                                android:text="~">
+                    <TextView
+                        android:gravity="center"
+                        android:alpha="0.66"
+                        android:textSize="16sp"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="]">
 
-                        </TextView>
+                    </TextView>
 
-                    </LinearLayout>
+                    <TextView
+                        android:layout_marginLeft="16dp"
+                        android:id="@+id/orientation_textview"
+                        android:gravity="center_horizontal"
+                        android:textSize="16sp"
+                        android:textStyle="bold"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="~">
+
+                    </TextView>
+
 
                 </LinearLayout>
 

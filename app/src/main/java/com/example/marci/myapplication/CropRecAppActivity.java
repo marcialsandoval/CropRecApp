@@ -26,6 +26,7 @@ import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
 import android.view.View;
 import android.widget.*;
+
 import org.datavec.image.loader.NativeImageLoader;
 import org.deeplearning4j.nn.conf.preprocessor.FeedForwardToCnnPreProcessor;
 import org.deeplearning4j.nn.graph.ComputationGraph;
@@ -43,9 +44,10 @@ import java.text.DecimalFormat;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
+
 import static android.Manifest.permission.*;
 
-public class CropRecAppActivity extends AppCompatActivity  implements SensorEventListener {
+public class CropRecAppActivity extends AppCompatActivity implements SensorEventListener {
 
     //Global variables
     private String LOG_TAG = CropRecAppActivity.class.getSimpleName();
@@ -55,7 +57,6 @@ public class CropRecAppActivity extends AppCompatActivity  implements SensorEven
     private final float[] rotationMatrix = new float[9];
     private final float[] mOrientationAngles = new float[3];
     DataNormalization trainImageScaler;
-    private MultiLayerNetwork net;
     private static int IMAGE_WIDTH;
     private static int IMAGE_HEIGHT;
     private static int IMAGE_CHANNELS;
@@ -86,19 +87,23 @@ public class CropRecAppActivity extends AppCompatActivity  implements SensorEven
     private final int SELEC_IMAGEN = 300;
     private final int WRITE_PERMISSION_RQST = 400;
     private final int CAMERA_PERMISSION_RQST = 500;
-    String[] classLabels = {"maize","other","wheat"};
+    String[] classLabels = {"maize", "other", "wheat"};
 
-    private final double[] maizeCentroid = {0.965910816,	0.520882138,	0.013386066,	0.977219936};
-    private final double[] otherCentroid = {0.489447644,	0.826917604,	0.625937269,	0.818640766};
-    private final double[] wheatCentroid =  {0.815427272,	0.531788577,	0.939501779,	0.949467153};
-    final int[] resnetMixMaxValues = {0,998};
+    private final double[] maizeCentroid = {0.965910816, 0.520882138, 0.013386066, 0.977219936};
+    private final double[] otherCentroid = {0.489447644, 0.826917604, 0.625937269, 0.818640766};
+    private final double[] wheatCentroid = {0.815427272, 0.531788577, 0.939501779, 0.949467153};
+    final int[] resnetMixMaxValues = {0, 998};
 
-    private final double[][] centroids = {maizeCentroid, otherCentroid ,wheatCentroid};
-    private ComputationGraph resnet50Model;
+    private final double[][] centroids = {maizeCentroid, otherCentroid, wheatCentroid};
+
     private final int RESNET50_CODE = 100;
     private final int MW_CODE = 200;
     private long TLMODEL_IMAGE_HEIGHT = 224;
     private long TLMODEL_IMAGE_WIDTH = 224;
+
+    private MultiLayerNetwork net = null;
+    private MultiLayerNetwork orientationNet = null;
+    private ComputationGraph resnet50Model = null;
 
 
     @Override
@@ -125,10 +130,10 @@ public class CropRecAppActivity extends AppCompatActivity  implements SensorEven
         //outputIcon shows the output class icon
         outputIcon = (ImageView) findViewById(R.id.output_icon);
 
-        progressBar = (ProgressBar) findViewById(R.id.progress_horizontal) ;
+        progressBar = (ProgressBar) findViewById(R.id.progress_horizontal);
 
         // locationLayout shows the users latitude and longitude
-        locationLayout = (LinearLayout)findViewById(R.id.location_layout);
+        locationLayout = (LinearLayout) findViewById(R.id.location_layout);
         latitudeTV = findViewById(R.id.latitude_textview);
         longitudeTV = findViewById(R.id.longitude_textview);
 
@@ -144,16 +149,21 @@ public class CropRecAppActivity extends AppCompatActivity  implements SensorEven
         takePictureBtn.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
+
+                //hides previous model prediction
                 outLayout.animate()
                         .alpha(0f)
                         .setDuration(350);
+
+                orientationTextView.setText("~");
+
                 //Checks for granted Camera Permission
                 if (ContextCompat.checkSelfPermission(getApplicationContext(), Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
 
                     ActivityCompat.requestPermissions(CropRecAppActivity.this,
                             new String[]{CAMERA}, CAMERA_PERMISSION_RQST);
 
-                }else{
+                } else {
 
                     takePicture();
 
@@ -181,7 +191,7 @@ public class CropRecAppActivity extends AppCompatActivity  implements SensorEven
     /**
      * This method initializes the sample pre processing parameters.
      * It takes the needed image height, width and channel quantity, and the needed image values normalization.
-     *
+     * <p>
      * This values are based on the training data.
      */
     private void initSampleInputParams() {
@@ -200,7 +210,7 @@ public class CropRecAppActivity extends AppCompatActivity  implements SensorEven
         try {
             trainImageScaler = getTrainImageScaler();
         } catch (IOException e) {
-            Log.e(LOG_TAG,"getTrainImageScaler IOException: " + e.toString());
+            Log.e(LOG_TAG, "getTrainImageScaler IOException: " + e.toString());
         }
 
 
@@ -209,7 +219,7 @@ public class CropRecAppActivity extends AppCompatActivity  implements SensorEven
     /**
      * This method classifies the input image.
      *
-     * @param  newImagePath Filepath with the test image to be classified.
+     * @param newImagePath Filepath with the test image to be classified.
      * @return String[] class label on index 0, and confidence value on index 1.
      */
     private String[] testImage(String newImagePath, int modelCode) {
@@ -273,24 +283,60 @@ public class CropRecAppActivity extends AppCompatActivity  implements SensorEven
 
         return result;
     }
+
     /**
      * This method launches phone location services and camera api.
-     *
      */
     public void takePicture() {
 
 
-       // initLocationListener();
+        //Activate location and orientation feature
+        initLocationListener();
+
+        //Starts camera
         dispatchTakePictureIntent();
 
     }
+
+
+    @Override
+    protected void onStart() {
+        super.onStart();
+
+        // Get updates from the accelerometer and magnetometer at a constant rate.
+        // To make batch operations more efficient and reduce power consumption,
+        // provide support for delaying updates to the application.
+        //
+        // In this example, the sensor reporting delay is small enough such that
+        // the application receives an update before the system checks the sensor
+        // readings again.
+
+        Sensor accelerometer = sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
+        Sensor magneticField = sensorManager.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD);
+
+        if (accelerometer != null) {
+            sensorManager.registerListener(CropRecAppActivity.this, accelerometer,
+                    SensorManager.SENSOR_DELAY_NORMAL, SensorManager.SENSOR_DELAY_UI);
+        }
+
+        if (magneticField != null) {
+            sensorManager.registerListener(CropRecAppActivity.this, magneticField,
+                    SensorManager.SENSOR_DELAY_NORMAL, SensorManager.SENSOR_DELAY_UI);
+        }
+
+
+    }
+
     /**
      * This method launches phone location change listener and {@link OrientationModelReaderAsyntask}
      */
 
     private void initLocationListener() {
+
         locationLayout.animate().alpha(1f).setDuration(150);
+
         manager = (LocationManager) getSystemService(LOCATION_SERVICE);
+
         locationListener = new LocationListener() {
             @Override
             public void onLocationChanged(Location location) {
@@ -303,6 +349,7 @@ public class CropRecAppActivity extends AppCompatActivity  implements SensorEven
 
                 latitudeTV.setText(userLatitude);
                 longitudeTV.setText(userLongitude);
+
 
             }
 
@@ -322,32 +369,28 @@ public class CropRecAppActivity extends AppCompatActivity  implements SensorEven
             }
         };
 
-        //launch OrientationModelReaderAsyntask once Sensor data is collected
-        OrientationModelReaderAsyntask runner = new OrientationModelReaderAsyntask();
-        runner.execute(orientationArray);
 
-        if (Build.VERSION.SDK_INT < 23) {// no permission check required
-            Log.i(LOG_TAG, "No checkSelfPermission");
-            Log.i(LOG_TAG, "requestLocationUpdates");
-            manager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 0, 0, locationListener);
 
-        } else {
-            Log.i(LOG_TAG, "checkSelfPermission");
-            //checks if permission granted
-            if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) { // permission not granted
-                //ask for permission
-                Log.i(LOG_TAG, "PERMISSION NOT GRANTED, ASK FOR IT");
-                ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.ACCESS_FINE_LOCATION}, LOCATION_RQST);
-            } else { //permission granted
-                //ask for location
-                Log.i(LOG_TAG, "PERMISSION GRANTED, ASK FOR LOCATION");
-                if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) { // permission  granted
-                    Log.i(LOG_TAG, "requestLocationUpdates");
-                    manager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 0, 0, locationListener);
-                }
+        //checks if permission granted
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) { // permission not granted
+
+            //ask for permission
+            Log.i(LOG_TAG, "PERMISSION NOT GRANTED, ASK FOR IT");
+            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.ACCESS_FINE_LOCATION}, LOCATION_RQST);
+
+        } else { //permission granted
+
+            //ask for location
+            Log.i(LOG_TAG, "PERMISSION GRANTED, ASK FOR LOCATION");
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) { // permission  granted
+                Log.i(LOG_TAG, "requestLocationUpdates");
+                manager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 0, 0, locationListener);
+
+                //launch OrientationModelReaderAsyntask once Sensor data is collected
+                OrientationModelReaderAsyntask runner = new OrientationModelReaderAsyntask();
+                runner.execute(orientationArray);
             }
         }
-
     }
 
     /**
@@ -362,6 +405,16 @@ public class CropRecAppActivity extends AppCompatActivity  implements SensorEven
         intent.putExtra(Intent.EXTRA_LOCAL_ONLY, true);
         startActivityForResult(Intent.createChooser(intent, "Complete action using"), SELEC_IMAGEN);
 
+
+    }
+
+    @Override
+    protected void onPause() {
+        super.onPause();
+
+
+        // Don't receive any more updates from either sensor.
+        sensorManager.unregisterListener(CropRecAppActivity.this);
 
     }
 
@@ -386,7 +439,7 @@ public class CropRecAppActivity extends AppCompatActivity  implements SensorEven
 
                         } catch (IOException ex) {
                             // Error occurred while creating the File
-                            Log.e(LOG_TAG,"createImageFile: " + ex.toString());
+                            Log.e(LOG_TAG, "createImageFile: " + ex.toString());
                             return;
                         }
 
@@ -400,7 +453,7 @@ public class CropRecAppActivity extends AppCompatActivity  implements SensorEven
                                 os.flush();
                                 os.close();
 
-                                Log.i(LOG_TAG,"execute ModelReaderAsyntask");
+                                Log.i(LOG_TAG, "execute ModelReaderAsyntask");
 
                                 //launch the asyncTask now that the image has been saved
                                 ModelReaderAsyntask runner = new ModelReaderAsyntask();
@@ -414,7 +467,7 @@ public class CropRecAppActivity extends AppCompatActivity  implements SensorEven
                         }
 
                     } catch (IOException e) {
-                        Log.e(LOG_TAG,"getBitmapFromUri: " + e.toString());
+                        Log.e(LOG_TAG, "getBitmapFromUri: " + e.toString());
                     }
 
                 }
@@ -424,11 +477,11 @@ public class CropRecAppActivity extends AppCompatActivity  implements SensorEven
 
             case OPEN_CAMERA_RQST: //Take picture button result
 
-                Log.i(LOG_TAG,"OPEN_CAMERA_RQST ");
+                Log.i(LOG_TAG, "OPEN_CAMERA_RQST ");
 
                 if (resultCode == RESULT_OK) {
 
-                    Log.i(LOG_TAG,"OPEN_CAMERA_RQST RESULT_OK ");
+                    Log.i(LOG_TAG, "OPEN_CAMERA_RQST RESULT_OK ");
 
                     Bundle extras = data.getExtras();
                     Bitmap imageBitmap = (Bitmap) extras.get("data");
@@ -439,7 +492,7 @@ public class CropRecAppActivity extends AppCompatActivity  implements SensorEven
 
                     } catch (IOException ex) {
                         // Error occurred while creating the File
-                        Log.e(LOG_TAG,"createImageFile: " + ex.toString());
+                        Log.e(LOG_TAG, "createImageFile: " + ex.toString());
                         return;
                     }
 
@@ -453,7 +506,7 @@ public class CropRecAppActivity extends AppCompatActivity  implements SensorEven
                             os.flush();
                             os.close();
 
-                            Log.i(LOG_TAG,"execute ModelReaderAsyntask");
+                            Log.i(LOG_TAG, "execute ModelReaderAsyntask");
 
                             //launch the asyncTask now that the image has been saved
                             ModelReaderAsyntask runner = new ModelReaderAsyntask();
@@ -516,7 +569,11 @@ public class CropRecAppActivity extends AppCompatActivity  implements SensorEven
                 InputStream inputStream = getResources().openRawResource(R.raw.relu_mse_e14_10222019235106_model);
                 InputStream resnet50InputStream = getResources().openRawResource(R.raw.resnet50);
 
-                importModels(inputStream, resnet50InputStream);
+                if(resnet50Model == null || net == null){
+
+                    importModels(inputStream, resnet50InputStream);
+
+                }
 
                 initSampleInputParams();
 
@@ -525,7 +582,7 @@ public class CropRecAppActivity extends AppCompatActivity  implements SensorEven
                 String[] output2 = testImage(newImagePath, MW_CODE);
 
                 double normalizedLabelOutput = normalizeResnetOutput1(output1[0]);
-                double[] sampleDoubles = {normalizedLabelOutput,	Double.parseDouble(output1[1]),	Double.parseDouble(output2[0]),	Double.parseDouble(output2[1])};
+                double[] sampleDoubles = {normalizedLabelOutput, Double.parseDouble(output1[1]), Double.parseDouble(output2[0]), Double.parseDouble(output2[1])};
 
                 testResult = classifySample(sampleDoubles);
                 Log.w(LOG_TAG, "testResult : " + testResult);
@@ -543,26 +600,29 @@ public class CropRecAppActivity extends AppCompatActivity  implements SensorEven
 
             String predictedLabel = "";
 
-            int[] featureIndex = {0,1,3};
+            int[] featureIndex = {0, 1, 3};
 
             double[] selectedSampleFeatures = new double[featureIndex.length];
             double[][] classCentroidsSelectedFeatures = new double[centroids.length][featureIndex.length];
 
-            for(int i = 0 ; i < featureIndex.length  ; i++){
+            for (int i = 0; i < featureIndex.length; i++) {
 
-                selectedSampleFeatures[i]  = sampleDoubles[featureIndex[i]];
+                selectedSampleFeatures[i] = sampleDoubles[featureIndex[i]];
 
-                classCentroidsSelectedFeatures[0][i] = centroids[0][featureIndex[i]];;
-                classCentroidsSelectedFeatures[1][i] = centroids[1][featureIndex[i]];;
-                classCentroidsSelectedFeatures[2][i] = centroids[2][featureIndex[i]];;
+                classCentroidsSelectedFeatures[0][i] = centroids[0][featureIndex[i]];
+                ;
+                classCentroidsSelectedFeatures[1][i] = centroids[1][featureIndex[i]];
+                ;
+                classCentroidsSelectedFeatures[2][i] = centroids[2][featureIndex[i]];
+                ;
 
             }
 
             double[] distances = new double[centroids.length];
 
-            for (int i = 0 ; i < centroids.length ; i++){
+            for (int i = 0; i < centroids.length; i++) {
 
-                distances[i] = getEuclideanDistance(selectedSampleFeatures,   classCentroidsSelectedFeatures[i]);
+                distances[i] = getEuclideanDistance(selectedSampleFeatures, classCentroidsSelectedFeatures[i]);
             }
 
             int minDistanceIndex = getMinDistance(distances);
@@ -577,11 +637,11 @@ public class CropRecAppActivity extends AppCompatActivity  implements SensorEven
             double minValue = 1000;
             int minIndex = -1;
 
-            for(int i = 0 ; i < distances.length ; i++){
+            for (int i = 0; i < distances.length; i++) {
 
-                if(distances[i] < minValue){
+                if (distances[i] < minValue) {
                     minValue = distances[i];
-                    minIndex = i ;
+                    minIndex = i;
                 }
 
             }
@@ -592,9 +652,9 @@ public class CropRecAppActivity extends AppCompatActivity  implements SensorEven
 
             double sum = 0;
 
-            for(int i = 0 ; i < selectedSampleFeatures.length ; i++){
+            for (int i = 0; i < selectedSampleFeatures.length; i++) {
 
-                sum +=  Math.pow(selectedSampleFeatures[i] - classCentroidsSelectedFeature[i],2);
+                sum += Math.pow(selectedSampleFeatures[i] - classCentroidsSelectedFeature[i], 2);
 
             }
 
@@ -607,7 +667,7 @@ public class CropRecAppActivity extends AppCompatActivity  implements SensorEven
             double result = -1;
 
             double value = Double.parseDouble(outputValue);
-            result = (value - resnetMixMaxValues[0]) / ( resnetMixMaxValues[1] - resnetMixMaxValues[0]);
+            result = (value - resnetMixMaxValues[0]) / (resnetMixMaxValues[1] - resnetMixMaxValues[0]);
 
             return result;
         }
@@ -638,20 +698,20 @@ public class CropRecAppActivity extends AppCompatActivity  implements SensorEven
             super.onPostExecute(result);
 
 
-            if(result.equals(classLabels[0])){
+            if (result.equals(classLabels[0])) {
                 //MAIZE
-                outLayout.setBackground(getResources().getDrawable(R.drawable.maize_output_background,null));
+                outLayout.setBackground(getResources().getDrawable(R.drawable.maize_output_background, null));
                 outputIcon.setImageResource(R.drawable.corn_ic);
-            }else{
+            } else {
 
-                if(result.equals(classLabels[1])){
+                if (result.equals(classLabels[1])) {
                     //OTHER
-                    outLayout.setBackground(getResources().getDrawable(R.drawable.other_output_background,null));
+                    outLayout.setBackground(getResources().getDrawable(R.drawable.other_output_background, null));
                     outputIcon.setImageResource(R.drawable.cancel);
 
-                }else{
+                } else {
                     //WHEAT
-                    outLayout.setBackground(getResources().getDrawable(R.drawable.wheat_output_background,null));
+                    outLayout.setBackground(getResources().getDrawable(R.drawable.wheat_output_background, null));
                     outputIcon.setImageResource(R.drawable.wheat_ic);
                 }
             }
@@ -693,17 +753,17 @@ public class CropRecAppActivity extends AppCompatActivity  implements SensorEven
     }
 
     /**
-     *This method retrieves image scaler file from the raw folder.
+     * This method retrieves image scaler file from the raw folder.
      */
     public DataNormalization getTrainImageScaler() throws IOException {
 
         if (ContextCompat.checkSelfPermission(getApplicationContext(), Manifest.permission.WRITE_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED
-                ||  ContextCompat.checkSelfPermission(getApplicationContext(), Manifest.permission.READ_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
+                || ContextCompat.checkSelfPermission(getApplicationContext(), Manifest.permission.READ_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
 
             ActivityCompat.requestPermissions(CropRecAppActivity.this,
                     new String[]{Manifest.permission.WRITE_EXTERNAL_STORAGE}, WRITE_PERMISSION_RQST);
 
-        }else{
+        } else {
 
             return getRawImageScaler();
 
@@ -713,9 +773,9 @@ public class CropRecAppActivity extends AppCompatActivity  implements SensorEven
     }
 
     /**
-     *This method retrieves image scaler file from the raw folder.
+     * This method retrieves image scaler file from the raw folder.
      */
-    private DataNormalization getRawImageScaler() throws  FileNotFoundException {
+    private DataNormalization getRawImageScaler() throws FileNotFoundException {
 
         InputStream inputStream = getResources().openRawResource(R.raw.image_scaler);
         OutputStream outputStream = new FileOutputStream(new File(getDataDir() + "/output"));
@@ -723,7 +783,7 @@ public class CropRecAppActivity extends AppCompatActivity  implements SensorEven
         int length;
         byte[] bytes = new byte[1024];
 
-        try{
+        try {
             // copy data from input stream to output stream
             while ((length = inputStream.read(bytes)) != -1) {
                 outputStream.write(bytes, 0, length);
@@ -739,9 +799,9 @@ public class CropRecAppActivity extends AppCompatActivity  implements SensorEven
 
             return scaler;
 
-        }catch (IOException | ClassNotFoundException e) {
-            Log.e(LOG_TAG,"getTrainImageScaler method: " + e.toString() );
-            Log.e(LOG_TAG,"getTrainImageScaler method: " + e.toString() );
+        } catch (IOException | ClassNotFoundException e) {
+            Log.e(LOG_TAG, "getTrainImageScaler method: " + e.toString());
+            Log.e(LOG_TAG, "getTrainImageScaler method: " + e.toString());
         }
 
 
@@ -762,14 +822,14 @@ public class CropRecAppActivity extends AppCompatActivity  implements SensorEven
 
                     Log.i(LOG_TAG, "NO_PERMISSIONS_GRANTED");
 
-                    if(grantResults[0] == PackageManager.PERMISSION_GRANTED){
+                    if (grantResults[0] == PackageManager.PERMISSION_GRANTED) {
 
                         if (ContextCompat.checkSelfPermission(getApplicationContext(), Manifest.permission.WRITE_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED) {
 
-                            Log.i(LOG_TAG, "All permissions granted" );
+                            Log.i(LOG_TAG, "All permissions granted");
 
-                        }else{
-                            Toast.makeText(getApplicationContext(),"Write/Read external storage permission necessary.",Toast.LENGTH_SHORT).show();
+                        } else {
+                            Toast.makeText(getApplicationContext(), "Write/Read external storage permission necessary.", Toast.LENGTH_SHORT).show();
                         }
 
                     }
@@ -780,16 +840,16 @@ public class CropRecAppActivity extends AppCompatActivity  implements SensorEven
 
                     Log.i(LOG_TAG, "TAKE_PIC_WRITE_PERMISSION_RQST");
 
-                    if(grantResults[0] == PackageManager.PERMISSION_GRANTED){
+                    if (grantResults[0] == PackageManager.PERMISSION_GRANTED) {
 
                         if (ContextCompat.checkSelfPermission(getApplicationContext(), Manifest.permission.WRITE_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED) {
 
-                            Log.i(LOG_TAG, "startTakePictureIntent" );
+                            Log.i(LOG_TAG, "startTakePictureIntent");
                             startTakePictureIntent();
 
 
-                        }else{
-                            Toast.makeText(getApplicationContext(),"Write external storage permission necessary.",Toast.LENGTH_SHORT).show();
+                        } else {
+                            Toast.makeText(getApplicationContext(), "Write external storage permission necessary.", Toast.LENGTH_SHORT).show();
                         }
 
                     }
@@ -797,36 +857,31 @@ public class CropRecAppActivity extends AppCompatActivity  implements SensorEven
                     break;
 
 
-
-
-
-
                 case CAMERA_PERMISSION_RQST:
 
                     Log.i(LOG_TAG, "CAMERA_RQST");
 
 
-                    if(grantResults[0] == PackageManager.PERMISSION_GRANTED){
+                    if (grantResults[0] == PackageManager.PERMISSION_GRANTED) {
 
-                        if (ContextCompat.checkSelfPermission(getApplicationContext(), CAMERA) == PackageManager.PERMISSION_GRANTED)  {
+                        if (ContextCompat.checkSelfPermission(getApplicationContext(), CAMERA) == PackageManager.PERMISSION_GRANTED) {
 
-                            Log.i(LOG_TAG, "CAMERA_RQST PERMISSION_GRANTED" );
+                            Log.i(LOG_TAG, "CAMERA_RQST PERMISSION_GRANTED");
 
-                            if(getPackageManager().hasSystemFeature(PackageManager.FEATURE_CAMERA_ANY)){
+                            if (getPackageManager().hasSystemFeature(PackageManager.FEATURE_CAMERA_ANY)) {
 
                                 Log.i(LOG_TAG, "hasSystemFeature");
                                 takePicture();
-                            }else{
-                                Toast.makeText(getApplicationContext(),"No camera available.",Toast.LENGTH_SHORT).show();
+                            } else {
+                                Toast.makeText(getApplicationContext(), "No camera available.", Toast.LENGTH_SHORT).show();
                             }
-
 
 
                         }
 
-                    }else{
+                    } else {
 
-                        Toast.makeText(getApplicationContext(),"Camera permissions necessary.",Toast.LENGTH_SHORT).show();
+                        Toast.makeText(getApplicationContext(), "Camera permissions necessary.", Toast.LENGTH_SHORT).show();
 
                     }
 
@@ -871,10 +926,10 @@ public class CropRecAppActivity extends AppCompatActivity  implements SensorEven
             Log.v(LOG_TAG, "getExternalStorageState() == null");
 
             directory = new File(Environment.getDataDirectory()
-                    + "/"+folderName+"/");
+                    + "/" + folderName + "/");
 
             Log.v(LOG_TAG, "directory path: " + Environment.getDataDirectory()
-                    + "/"+folderName+"/");
+                    + "/" + folderName + "/");
 
             // if no directory exists, create new directory
             if (!directory.exists()) {
@@ -890,7 +945,7 @@ public class CropRecAppActivity extends AppCompatActivity  implements SensorEven
 
             // search for directory on SD card
             directory = new File(Environment.getExternalStorageDirectory()
-                    + "/"+folderName+"/");
+                    + "/" + folderName + "/");
             // if no directory exists, create new directory
             if (!directory.exists()) {
                 Log.v(LOG_TAG, "directory dont exist");
@@ -902,7 +957,7 @@ public class CropRecAppActivity extends AppCompatActivity  implements SensorEven
         return directory;
 
     }
-    
+
     private File createImageFile() throws IOException {
 
         // Create an image file name
@@ -912,7 +967,7 @@ public class CropRecAppActivity extends AppCompatActivity  implements SensorEven
         File storageDir = getOutputDirectory("CropRecApp");
 
 
-        return new File(storageDir,imageFileName);
+        return new File(storageDir, imageFileName);
     }
 
     private void dispatchTakePictureIntent() {
@@ -923,7 +978,7 @@ public class CropRecAppActivity extends AppCompatActivity  implements SensorEven
             ActivityCompat.requestPermissions(CropRecAppActivity.this,
                     new String[]{Manifest.permission.WRITE_EXTERNAL_STORAGE}, TAKE_PIC_WRITE_PERMISSION_RQST);
 
-        }else{
+        } else {
             startTakePictureIntent();
         }
 
@@ -965,10 +1020,16 @@ public class CropRecAppActivity extends AppCompatActivity  implements SensorEven
             double[][] sample = samples[0];
 
             try {
-                // Load the pretrained network.
-                InputStream inputStream = getResources().openRawResource(R.raw.orientation_model);
-                MultiLayerNetwork orientationNet = ModelSerializer.restoreMultiLayerNetwork(inputStream);
-                Log.i(LOG_TAG, "orientationNet restore Done");
+
+                if(orientationNet == null){
+
+                    // Load the pretrained network.
+                    InputStream inputStream = getResources().openRawResource(R.raw.orientation_model);
+                    orientationNet = ModelSerializer.restoreMultiLayerNetwork(inputStream);
+                    Log.i(LOG_TAG, "orientationNet restore Done");
+
+                }
+
                 INDArray matrix = Nd4j.create(sample);
 
                 DataNormalization normalizer = getOrientationNormalizer();
@@ -980,7 +1041,7 @@ public class CropRecAppActivity extends AppCompatActivity  implements SensorEven
                 return getOrientationLabel(out[0]);
 
             } catch (IOException e) {
-                Log.e(LOG_TAG,  "ModelSerializer error: " + e.toString());
+                Log.e(LOG_TAG, "ModelSerializer error: " + e.toString());
             }
 
             return null;
@@ -996,18 +1057,18 @@ public class CropRecAppActivity extends AppCompatActivity  implements SensorEven
         protected void onPostExecute(String result) {
             super.onPostExecute(result);
 
-            Log.i(LOG_TAG,"OrientationModelReaderAsyntask onPostExecute result : " + result);
+            Log.i(LOG_TAG, "OrientationModelReaderAsyntask onPostExecute result : " + result);
 
             orientationTextView.setText(result);
 
             //Displays output
-           // oreintationTV.setText(result);
+            // oreintationTV.setText(result);
 
         }
 
     }
 
-    private DataNormalization getOrientationNormalizer() throws  FileNotFoundException {
+    private DataNormalization getOrientationNormalizer() throws FileNotFoundException {
 
         InputStream inputStream = getResources().openRawResource(R.raw.orientation_normalizer);
         OutputStream outputStream = new FileOutputStream(new File(getDataDir() + "/orientation_output"));
@@ -1015,7 +1076,7 @@ public class CropRecAppActivity extends AppCompatActivity  implements SensorEven
         int length;
         byte[] bytes = new byte[1024];
 
-        try{
+        try {
             // copy data from input stream to output stream
             while ((length = inputStream.read(bytes)) != -1) {
                 outputStream.write(bytes, 0, length);
@@ -1031,8 +1092,8 @@ public class CropRecAppActivity extends AppCompatActivity  implements SensorEven
 
             return scaler;
 
-        }catch (IOException | ClassNotFoundException e) {
-            Log.e(LOG_TAG,"getNormalizer method: " + e.toString() );
+        } catch (IOException | ClassNotFoundException e) {
+            Log.e(LOG_TAG, "getNormalizer method: " + e.toString());
         }
 
 
@@ -1041,7 +1102,7 @@ public class CropRecAppActivity extends AppCompatActivity  implements SensorEven
 
     private String getOrientationLabel(int orientationValue) {
 
-        switch (orientationValue){
+        switch (orientationValue) {
             case 0://NORTH
                 return "N";
             case 1://NORTHEAST
@@ -1069,39 +1130,6 @@ public class CropRecAppActivity extends AppCompatActivity  implements SensorEven
         // You must implement this callback in your code.
     }
 
-    @Override
-    protected void onResume() {
-        super.onResume();
-        // Get updates from the accelerometer and magnetometer at a constant rate.
-        // To make batch operations more efficient and reduce power consumption,
-        // provide support for delaying updates to the application.
-        //
-        // In this example, the sensor reporting delay is small enough such that
-        // the application receives an update before the system checks the sensor
-        // readings again.
-
-        Sensor accelerometer = sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
-        if (accelerometer != null) {
-            sensorManager.registerListener(CropRecAppActivity.this, accelerometer,
-                    SensorManager.SENSOR_DELAY_NORMAL, SensorManager.SENSOR_DELAY_UI);
-        }
-        Sensor magneticField = sensorManager.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD);
-        if (magneticField != null) {
-            sensorManager.registerListener(CropRecAppActivity.this, magneticField,
-                    SensorManager.SENSOR_DELAY_NORMAL, SensorManager.SENSOR_DELAY_UI);
-        }
-
-
-    }
-
-    @Override
-    protected void onPause() {
-        super.onPause();
-
-        // Don't receive any more updates from either sensor.
-        sensorManager.unregisterListener(this);
-
-    }
 
 
     // Get readings from accelerometer and magnetometer. To simplify calculations,
@@ -1156,7 +1184,6 @@ public class CropRecAppActivity extends AppCompatActivity  implements SensorEven
         orientationArray[0][17] = (double) rotationMatrix[8];
 
         Log.i(LOG_TAG, "SENSOR INFO UPDATED");
-
 
 
 //        orientationArray = {{ccelerometerReading[0], accelerometerReading[1] , accelerometerReading[2] ,
