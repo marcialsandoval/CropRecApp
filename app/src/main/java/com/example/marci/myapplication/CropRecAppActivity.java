@@ -67,7 +67,7 @@ public class CropRecAppActivity extends AppCompatActivity  implements SensorEven
     // Create the File where the photo should go
     File photoFile = null;
 
-    RelativeLayout outLayout;
+    View outLayout;
     ProgressBar progressBar;
     LinearLayout locationLayout;
     private LocationManager manager;
@@ -123,7 +123,7 @@ public class CropRecAppActivity extends AppCompatActivity  implements SensorEven
         confTv = (TextView) findViewById(R.id.conf_tv);
 
         //outLayout shows the output class label
-        outLayout = (RelativeLayout) findViewById(R.id.output_layout);
+        outLayout = findViewById(R.id.output_layout);
 
         //outputIcon shows the output class icon
         outputIcon = (ImageView) findViewById(R.id.output_icon);
