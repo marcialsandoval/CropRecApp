@@ -117,6 +117,7 @@
                             android:orientation="horizontal">
 
                         <TextView
+                            android:alpha="0"
                                 android:id="@+id/orientation_textview"
                                 android:gravity="center_horizontal"
                                 android:textSize="16sp"

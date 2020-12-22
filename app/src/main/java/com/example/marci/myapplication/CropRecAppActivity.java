@@ -55,7 +55,7 @@ public class CropRecAppActivity extends AppCompatActivity  implements SensorEven
     private final float[] rotationMatrix = new float[9];
     private final float[] mOrientationAngles = new float[3];
     DataNormalization trainImageScaler;
-    private MultiLayerNetwork net;
+
     private static int IMAGE_WIDTH;
     private static int IMAGE_HEIGHT;
     private static int IMAGE_CHANNELS;
@@ -94,12 +94,15 @@ public class CropRecAppActivity extends AppCompatActivity  implements SensorEven
     final int[] resnetMixMaxValues = {0,998};
 
     private final double[][] centroids = {maizeCentroid, otherCentroid ,wheatCentroid};
-    private ComputationGraph resnet50Model;
+
     private final int RESNET50_CODE = 100;
     private final int MW_CODE = 200;
     private long TLMODEL_IMAGE_HEIGHT = 224;
     private long TLMODEL_IMAGE_WIDTH = 224;
 
+    private MultiLayerNetwork orientationNet = null;
+    private ComputationGraph resnet50Model = null;
+    private MultiLayerNetwork net = null;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -147,6 +150,11 @@ public class CropRecAppActivity extends AppCompatActivity  implements SensorEven
                 outLayout.animate()
                         .alpha(0f)
                         .setDuration(350);
+
+                orientationTextView.animate()
+                        .alpha(0f)
+                        .setDuration(350);
+
                 //Checks for granted Camera Permission
                 if (ContextCompat.checkSelfPermission(getApplicationContext(), Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
 
@@ -284,6 +292,7 @@ public class CropRecAppActivity extends AppCompatActivity  implements SensorEven
         dispatchTakePictureIntent();
 
     }
+
     /**
      * This method launches phone location change listener and {@link OrientationModelReaderAsyntask}
      */
@@ -326,25 +335,18 @@ public class CropRecAppActivity extends AppCompatActivity  implements SensorEven
         OrientationModelReaderAsyntask runner = new OrientationModelReaderAsyntask();
         runner.execute(orientationArray);
 
-        if (Build.VERSION.SDK_INT < 23) {// no permission check required
-            Log.i(LOG_TAG, "No checkSelfPermission");
-            Log.i(LOG_TAG, "requestLocationUpdates");
-            manager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 0, 0, locationListener);
-
-        } else {
-            Log.i(LOG_TAG, "checkSelfPermission");
-            //checks if permission granted
-            if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) { // permission not granted
-                //ask for permission
-                Log.i(LOG_TAG, "PERMISSION NOT GRANTED, ASK FOR IT");
-                ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.ACCESS_FINE_LOCATION}, LOCATION_RQST);
-            } else { //permission granted
-                //ask for location
-                Log.i(LOG_TAG, "PERMISSION GRANTED, ASK FOR LOCATION");
-                if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) { // permission  granted
-                    Log.i(LOG_TAG, "requestLocationUpdates");
-                    manager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 0, 0, locationListener);
-                }
+        Log.i(LOG_TAG, "checkSelfPermission");
+        //checks if permission granted
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) { // permission not granted
+            //ask for permission
+            Log.i(LOG_TAG, "PERMISSION NOT GRANTED, ASK FOR IT");
+            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.ACCESS_FINE_LOCATION}, LOCATION_RQST);
+        } else { //permission granted
+            //ask for location
+            Log.i(LOG_TAG, "PERMISSION GRANTED, ASK FOR LOCATION");
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) { // permission  granted
+                Log.i(LOG_TAG, "requestLocationUpdates");
+                manager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 0, 0, locationListener);
             }
         }
 
@@ -512,11 +514,15 @@ public class CropRecAppActivity extends AppCompatActivity  implements SensorEven
             //load the model from the raw folder with a try / catch block
             try {
 
-                // Load the pretrained network.
-                InputStream inputStream = getResources().openRawResource(R.raw.relu_mse_e14_10222019235106_model);
-                InputStream resnet50InputStream = getResources().openRawResource(R.raw.resnet50);
 
-                importModels(inputStream, resnet50InputStream);
+                if(resnet50Model == null || net == null){
+
+                    // Load the pretrained network.
+                    InputStream inputStream = getResources().openRawResource(R.raw.relu_mse_e14_10222019235106_model);
+                    InputStream resnet50InputStream = getResources().openRawResource(R.raw.resnet50);
+                    importModels(inputStream, resnet50InputStream);
+
+                }
 
                 initSampleInputParams();
 
@@ -965,10 +971,16 @@ public class CropRecAppActivity extends AppCompatActivity  implements SensorEven
             double[][] sample = samples[0];
 
             try {
-                // Load the pretrained network.
-                InputStream inputStream = getResources().openRawResource(R.raw.orientation_model);
-                MultiLayerNetwork orientationNet = ModelSerializer.restoreMultiLayerNetwork(inputStream);
-                Log.i(LOG_TAG, "orientationNet restore Done");
+
+                if(orientationNet != null ){
+
+                    // Load the pretrained network.
+                    InputStream inputStream = getResources().openRawResource(R.raw.orientation_model);
+                    orientationNet = ModelSerializer.restoreMultiLayerNetwork(inputStream);
+                    Log.i(LOG_TAG, "orientationNet restore Done");
+
+                }
+
                 INDArray matrix = Nd4j.create(sample);
 
                 DataNormalization normalizer = getOrientationNormalizer();
