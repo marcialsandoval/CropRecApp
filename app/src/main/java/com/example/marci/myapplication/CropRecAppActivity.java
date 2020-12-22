@@ -147,13 +147,21 @@ public class CropRecAppActivity extends AppCompatActivity  implements SensorEven
         takePictureBtn.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
+
                 outLayout.animate()
                         .alpha(0f)
                         .setDuration(350);
 
-                orientationTextView.animate()
-                        .alpha(0f)
-                        .setDuration(350);
+                orientationTextView.setText("");
+
+                if(locationLayout.getVisibility() == View.GONE){
+
+                    locationLayout.setVisibility(View.VISIBLE);
+                    locationLayout.animate()
+                            .alpha(1f)
+                            .setDuration(350);
+
+                }
 
                 //Checks for granted Camera Permission
                 if (ContextCompat.checkSelfPermission(getApplicationContext(), Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
@@ -177,6 +185,14 @@ public class CropRecAppActivity extends AppCompatActivity  implements SensorEven
                         .alpha(0f)
                         .setDuration(350);
 
+                if(locationLayout.getVisibility() == View.VISIBLE){
+
+                    locationLayout.animate()
+                            .alpha(0f)
+                            .setDuration(350);
+                    locationLayout.setVisibility(View.GONE);
+
+                }
 
                 selectImage();
             }
@@ -288,7 +304,7 @@ public class CropRecAppActivity extends AppCompatActivity  implements SensorEven
     public void takePicture() {
 
 
-       // initLocationListener();
+        initLocationListener();
         dispatchTakePictureIntent();
 
     }
@@ -298,8 +314,10 @@ public class CropRecAppActivity extends AppCompatActivity  implements SensorEven
      */
 
     private void initLocationListener() {
+
         locationLayout.animate().alpha(1f).setDuration(150);
         manager = (LocationManager) getSystemService(LOCATION_SERVICE);
+
         locationListener = new LocationListener() {
             @Override
             public void onLocationChanged(Location location) {
@@ -331,11 +349,9 @@ public class CropRecAppActivity extends AppCompatActivity  implements SensorEven
             }
         };
 
-        //launch OrientationModelReaderAsyntask once Sensor data is collected
-        OrientationModelReaderAsyntask runner = new OrientationModelReaderAsyntask();
-        runner.execute(orientationArray);
 
         Log.i(LOG_TAG, "checkSelfPermission");
+
         //checks if permission granted
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) { // permission not granted
             //ask for permission
@@ -347,6 +363,13 @@ public class CropRecAppActivity extends AppCompatActivity  implements SensorEven
             if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) { // permission  granted
                 Log.i(LOG_TAG, "requestLocationUpdates");
                 manager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 0, 0, locationListener);
+
+
+                //launch OrientationModelReaderAsyntask once Sensor data is collected
+                OrientationModelReaderAsyntask runner = new OrientationModelReaderAsyntask();
+                runner.execute(orientationArray);
+
+
             }
         }
 
@@ -972,7 +995,7 @@ public class CropRecAppActivity extends AppCompatActivity  implements SensorEven
 
             try {
 
-                if(orientationNet != null ){
+                if(orientationNet == null ){
 
                     // Load the pretrained network.
                     InputStream inputStream = getResources().openRawResource(R.raw.orientation_model);
@@ -1166,18 +1189,6 @@ public class CropRecAppActivity extends AppCompatActivity  implements SensorEven
         orientationArray[0][15] = (double) rotationMatrix[6];
         orientationArray[0][16] = (double) rotationMatrix[7];
         orientationArray[0][17] = (double) rotationMatrix[8];
-
-        Log.i(LOG_TAG, "SENSOR INFO UPDATED");
-
-
-
-//        orientationArray = {{ccelerometerReading[0], accelerometerReading[1] , accelerometerReading[2] ,
-//                magnetometerReading[0] , magnetometerReading[1] , magnetometerReading[2] ,
-//                mOrientationAngles[0] , mOrientationAngles[1] , mOrientationAngles[2] ,
-//                rotationMatrix[0] , rotationMatrix[1] , rotationMatrix[2] ,
-//                rotationMatrix[3] , rotationMatrix[4] , rotationMatrix[5] ,
-//                rotationMatrix[6] , rotationMatrix[7] , rotationMatrix[8]}};
-
 
     }
 
