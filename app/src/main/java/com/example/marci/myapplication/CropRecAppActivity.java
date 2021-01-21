@@ -93,7 +93,7 @@ public class CropRecAppActivity extends AppCompatActivity  implements SensorEven
     private final double[] wheatCentroid =  {0.815427272,	0.531788577,	0.939501779,	0.949467153};
     final int[] resnetMixMaxValues = {0,998};
 
-    private final double[][] centroids = {maizeCentroid, otherCentroid ,wheatCentroid};
+        private final double[][] centroids = {maizeCentroid, otherCentroid ,wheatCentroid};
 
     private final int RESNET50_CODE = 100;
     private final int MW_CODE = 200;
@@ -545,9 +545,9 @@ public class CropRecAppActivity extends AppCompatActivity  implements SensorEven
                     InputStream resnet50InputStream = getResources().openRawResource(R.raw.resnet50);
                     importModels(inputStream, resnet50InputStream);
 
-                }
+                    initSampleInputParams();
 
-                initSampleInputParams();
+                }
 
                 String newImagePath = photoFile.getPath();
                 String[] output1 = testImage(newImagePath, RESNET50_CODE);

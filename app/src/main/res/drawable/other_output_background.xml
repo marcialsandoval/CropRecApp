@@ -6,6 +6,8 @@
     android:thickness="40dp"
     android:innerRadius="0dp">
 
+    <corners android:radius="12dp" />
+
     <solid
         android:color="@android:color/black"/>
     <stroke
